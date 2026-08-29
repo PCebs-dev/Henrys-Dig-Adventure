@@ -3,31 +3,38 @@ import {
   createBoatTextures,
   createBoatViewGraphics,
   redrawBoatView,
-  addScaryWhaleEyes,
   playWhaleExplosion,
   spawnPoisonSkull,
-  addSailorWave,
-  playSailorHitReaction,
-  setupWhaleJump,
+  addFishWave,
+  playFishHitReaction,
+  setupSharkJump,
+  showBlockShield,
 } from '../boat/boatArt.js'
+import { preloadBoatAssets, SHARK_KEY, FISH_KEY } from '../boat/boatAssets.js'
 
-const WHALE_SPEED = 55 * 1.04
-const SAILOR_SPEED = 48
+const SHARK_SPEED = 55 * 1.04
+const FISH_SPEED = 48
 const BULLET_SPEED = 420
+const ENEMY_BULLET_SPEED = 300
 const PEDAL_SPEED = 160
 const SPAWN_MS = 1470
-const JUMPING_WHALE_CHANCE = 0.38
-const SAILOR_SPAWN_CHANCE = 0.32
+const JUMPING_SHARK_CHANCE = 0.38
+const FISH_SPAWN_CHANCE = 0.32
+const SHARK_SHOOTER_CHANCE = 0.4
 
 export class BoatScene extends Phaser.Scene {
   constructor() {
     super('BoatScene')
   }
 
+  preload() {
+    preloadBoatAssets(this)
+  }
+
   init(data) {
     this.sfx = data.sfx ?? this.registry.get('sfx')
     this.returnScene = data.returnScene ?? 'TitleScene'
-    this.whaleScore = 0
+    this.score = 0
   }
 
   create() {
@@ -38,19 +45,22 @@ export class BoatScene extends Phaser.Scene {
     this._drawOcean(w, h)
 
     this.boatX = w / 2
+    this.boatY = h - 72
     this.pedalLeftDown = false
     this.pedalRightDown = false
+    this.isBlocking = false
     this.canShoot = true
 
-    this.whales = this.physics.add.group()
-    this.sailors = this.physics.add.group()
+    this.sharks = this.physics.add.group()
+    this.fish = this.physics.add.group()
     this.bullets = this.physics.add.group()
+    this.enemyBullets = this.physics.add.group()
 
     this.boatView = createBoatViewGraphics(this)
     redrawBoatView(this.boatView, { width: w, height: h, boatX: this.boatX })
 
     this.boatSprite = this.add
-      .image(this.boatX, h - 72, 'boat-hull')
+      .image(this.boatX, this.boatY, 'boat-hull')
       .setDepth(850)
       .setScrollFactor(0)
 
@@ -74,9 +84,16 @@ export class BoatScene extends Phaser.Scene {
 
     this._wirePedal(this.leftPedal, 'left')
     this._wirePedal(this.rightPedal, 'right')
+    this._addBlockButton(w, h)
+
+    this.boatZone = this.add.zone(this.boatX, this.boatY, 110, 56)
+    this.physics.add.existing(this.boatZone)
+    this.boatZone.body.setAllowGravity(false)
+    this.boatZone.body.setImmovable(true)
+    this.boatZone.setScrollFactor(0)
 
     this.scoreText = this.add
-      .text(16, 14, 'Whales: 0', {
+      .text(16, 14, 'Score: 0', {
         fontFamily: 'system-ui, Segoe UI, sans-serif',
         fontSize: '22px',
         color: '#e0f2fe',
@@ -87,7 +104,7 @@ export class BoatScene extends Phaser.Scene {
       .setScrollFactor(0)
 
     this.add
-      .text(w / 2, 14, 'BOAT WHALE HUNT', {
+      .text(w / 2, 14, 'BOAT SHARK HUNT', {
         fontFamily: 'system-ui, Segoe UI, sans-serif',
         fontSize: '18px',
         color: '#fde68a',
@@ -97,7 +114,7 @@ export class BoatScene extends Phaser.Scene {
       .setScrollFactor(0)
 
     this.add
-      .text(w / 2, h - 118, 'Shoot whales (+1)  |  Avoid sailors (-1)', {
+      .text(w / 2, h - 118, 'Space = shoot  |  Ctrl = block  |  Avoid fish (-1)', {
         fontFamily: 'system-ui, Segoe UI, sans-serif',
         fontSize: '13px',
         color: '#bae6fd',
@@ -123,10 +140,10 @@ export class BoatScene extends Phaser.Scene {
 
     this.physics.add.overlap(
       this.bullets,
-      this.whales,
-      (bullet, whale) => {
+      this.sharks,
+      (bullet, shark) => {
         if (bullet.active) bullet.destroy()
-        this._onWhaleHit(whale)
+        this._onSharkHit(shark)
       },
       undefined,
       this,
@@ -134,11 +151,19 @@ export class BoatScene extends Phaser.Scene {
 
     this.physics.add.overlap(
       this.bullets,
-      this.sailors,
-      (bullet, sailor) => {
+      this.fish,
+      (bullet, fishSprite) => {
         if (bullet.active) bullet.destroy()
-        this._onSailorHit(sailor)
+        this._onFishHit(fishSprite)
       },
+      undefined,
+      this,
+    )
+
+    this.physics.add.overlap(
+      this.enemyBullets,
+      this.boatZone,
+      (bullet) => this._onEnemyBulletHitBoat(bullet),
       undefined,
       this,
     )
@@ -147,18 +172,66 @@ export class BoatScene extends Phaser.Scene {
       if (p.y < h - 140) this._shoot()
     })
 
-    this.input.keyboard?.on('keydown-SPACE', () => this._shoot())
-    this.input.keyboard?.on('keydown-A', () => { this.pedalLeftDown = true })
-    this.input.keyboard?.on('keydown-D', () => { this.pedalRightDown = true })
-    this.input.keyboard?.on('keydown-LEFT', () => { this.pedalLeftDown = true })
-    this.input.keyboard?.on('keydown-RIGHT', () => { this.pedalRightDown = true })
-    this.input.keyboard?.on('keyup-A', () => { this.pedalLeftDown = false })
-    this.input.keyboard?.on('keyup-D', () => { this.pedalRightDown = false })
-    this.input.keyboard?.on('keyup-LEFT', () => { this.pedalLeftDown = false })
-    this.input.keyboard?.on('keyup-RIGHT', () => { this.pedalRightDown = false })
-    this.input.keyboard?.on('keydown-ESC', () => this._exit())
+    this._bindKeyboard()
 
     this.nextSpawnAt = this.time.now + 1200
+  }
+
+  _bindKeyboard() {
+    const kb = this.input.keyboard
+    if (!kb) return
+
+    kb.on('keydown-SPACE', (e) => {
+      e.preventDefault()
+      this._shoot()
+    })
+
+    const blockDown = () => this._setBlocking(true)
+    const blockUp = () => this._setBlocking(false)
+
+    kb.on('keydown-CTRL', blockDown)
+    kb.on('keyup-CTRL', blockUp)
+    kb.on('keydown-CONTROL', blockDown)
+    kb.on('keyup-CONTROL', blockUp)
+
+    kb.on('keydown-A', () => { this.pedalLeftDown = true })
+    kb.on('keydown-D', () => { this.pedalRightDown = true })
+    kb.on('keydown-LEFT', () => { this.pedalLeftDown = true })
+    kb.on('keydown-RIGHT', () => { this.pedalRightDown = true })
+    kb.on('keyup-A', () => { this.pedalLeftDown = false })
+    kb.on('keyup-D', () => { this.pedalRightDown = false })
+    kb.on('keyup-LEFT', () => { this.pedalLeftDown = false })
+    kb.on('keyup-RIGHT', () => { this.pedalRightDown = false })
+    kb.on('keydown-ESC', () => this._exit())
+  }
+
+  _addBlockButton(w, h) {
+    const btn = this.add
+      .text(this.boatX, h - 58, '🛡 BLOCK', {
+        fontFamily: 'system-ui, Segoe UI, sans-serif',
+        fontSize: '14px',
+        color: '#e0f2fe',
+        backgroundColor: 'rgba(30,58,138,0.75)',
+        padding: { left: 10, right: 10, top: 6, bottom: 6 },
+      })
+      .setOrigin(0.5)
+      .setDepth(875)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true })
+
+    this.blockBtn = btn
+
+    btn.on('pointerdown', () => this._setBlocking(true))
+    btn.on('pointerup', () => this._setBlocking(false))
+    btn.on('pointerout', () => this._setBlocking(false))
+  }
+
+  _setBlocking(active) {
+    this.isBlocking = active
+    showBlockShield(this, this.boatX, this.boatY - 8, active)
+    if (this.blockBtn) {
+      this.blockBtn.setBackgroundColor(active ? 'rgba(59,130,246,0.95)' : 'rgba(30,58,138,0.75)')
+    }
   }
 
   _drawOcean(w, h) {
@@ -232,7 +305,7 @@ export class BoatScene extends Phaser.Scene {
     })
   }
 
-  _spawnWhale() {
+  _spawnShark() {
     const w = this.scale.width
     const h = this.scale.height
     const fromLeft = Math.random() > 0.5
@@ -240,21 +313,21 @@ export class BoatScene extends Phaser.Scene {
     const x = fromLeft ? -50 : w + 50
     const surfaceY = h * 0.42
 
-    const whale = this.whales.create(x, y, 'whale')
-    whale.body.setAllowGravity(false)
-    whale.setVelocityX(fromLeft ? WHALE_SPEED : -WHALE_SPEED)
-    whale.setFlipX(!fromLeft)
-    whale.setDepth(y)
-    whale.body.setSize(60, 28)
-    whale.body.setOffset(10, 10)
+    const shark = this.sharks.create(x, y, SHARK_KEY)
+    shark.setScale(0.85)
+    shark.body.setAllowGravity(false)
+    shark.setVelocityX(fromLeft ? SHARK_SPEED : -SHARK_SPEED)
+    shark.setFlipX(!fromLeft)
+    shark.setDepth(y)
+    shark.body.setSize(shark.displayWidth * 0.75, shark.displayHeight * 0.55)
+    shark.body.setOffset(shark.displayWidth * 0.12, shark.displayHeight * 0.22)
 
-    const isJumper = Math.random() < JUMPING_WHALE_CHANCE
+    const isJumper = Math.random() < JUMPING_SHARK_CHANCE
     if (isJumper) {
-      whale.isJumper = true
-      setupWhaleJump(this, whale, surfaceY)
+      setupSharkJump(this, shark, surfaceY)
     } else {
       this.tweens.add({
-        targets: whale,
+        targets: shark,
         y: y + Phaser.Math.Between(-12, 12),
         duration: 1400,
         yoyo: true,
@@ -263,57 +336,91 @@ export class BoatScene extends Phaser.Scene {
       })
     }
 
-    addScaryWhaleEyes(this, whale)
+    if (Math.random() < SHARK_SHOOTER_CHANCE) {
+      shark.isShooter = true
+      shark.nextShotAt = this.time.now + Phaser.Math.Between(900, 1800)
+    }
   }
 
-  _spawnSailor() {
+  _spawnFish() {
     const w = this.scale.width
     const h = this.scale.height
     const fromLeft = Math.random() > 0.5
     const y = Phaser.Math.Between(Math.floor(h * 0.32), Math.floor(h * 0.68))
     const x = fromLeft ? -50 : w + 50
 
-    const sailor = this.sailors.create(x, y, 'sailor')
-    sailor.body.setAllowGravity(false)
-    sailor.setVelocityX(fromLeft ? SAILOR_SPEED : -SAILOR_SPEED)
-    sailor.setFlipX(!fromLeft)
-    sailor.setDepth(y)
-    sailor.body.setSize(52, 40)
-    sailor.body.setOffset(14, 8)
-    sailor.isFriendly = true
+    const fishSprite = this.fish.create(x, y, FISH_KEY)
+    fishSprite.setScale(0.85)
+    fishSprite.body.setAllowGravity(false)
+    fishSprite.setVelocityX(fromLeft ? FISH_SPEED : -FISH_SPEED)
+    fishSprite.setFlipX(!fromLeft)
+    fishSprite.setDepth(y)
+    fishSprite.body.setSize(fishSprite.displayWidth * 0.7, fishSprite.displayHeight * 0.65)
+    fishSprite.body.setOffset(fishSprite.displayWidth * 0.15, fishSprite.displayHeight * 0.18)
 
-    addSailorWave(this, sailor)
+    addFishWave(this, fishSprite)
   }
 
-  _onSailorHit(sailor) {
-    if (!sailor.active) return
+  _sharkTryShoot(shark, time) {
+    if (!shark.isShooter || !shark.active) return
+    if (time < shark.nextShotAt) return
+    if (Math.abs(shark.x - this.boatX) > 140) return
 
-    const { x, y } = sailor
-    const depth = sailor.depth
-    sailor.destroy()
+    shark.nextShotAt = time + Phaser.Math.Between(1600, 2800)
 
-    playSailorHitReaction(this, x, y, depth)
+    const bullet = this.enemyBullets.create(shark.x, shark.y + 18, 'enemy-bullet')
+    bullet.body.setAllowGravity(false)
+    bullet.setVelocity(0, ENEMY_BULLET_SPEED)
+    bullet.setDepth(820)
 
-    this.whaleScore = Math.max(0, this.whaleScore - 1)
-    this.scoreText.setText(`Whales: ${this.whaleScore}`)
+    this.time.delayedCall(3500, () => {
+      if (bullet.active) bullet.destroy()
+    })
+  }
+
+  _onEnemyBulletHitBoat(bullet) {
+    if (!bullet.active) return
+    const { x, y } = bullet
+    bullet.destroy()
+
+    if (this.isBlocking) {
+      this.hudFloat(x, y, 'Blocked!', '#93c5fd')
+      return
+    }
+
+    this.score = Math.max(0, this.score - 1)
+    this.scoreText.setText(`Score: ${this.score}`)
+    this.hudFloat(this.boatX, this.boatY - 50, 'Hit! -1', '#f87171')
+    this.cameras.main.shake(100, 0.01)
+  }
+
+  _onFishHit(fishSprite) {
+    if (!fishSprite.active) return
+
+    const { x, y } = fishSprite
+    const depth = fishSprite.depth
+    fishSprite.destroy()
+
+    playFishHitReaction(this, x, y, depth)
+
+    this.score = Math.max(0, this.score - 1)
+    this.scoreText.setText(`Score: ${this.score}`)
     this.hudFloat(x, y - 40, '-1 point!', '#f87171')
     this.cameras.main.shake(80, 0.008)
   }
 
-  _onWhaleHit(whale) {
-    if (!whale.active) return
+  _onSharkHit(shark) {
+    if (!shark.active) return
 
-    const { x, y } = whale
-    const depth = whale.depth
-
-    if (whale.scaryGlow?.active) whale.scaryGlow.destroy()
-    whale.destroy()
+    const { x, y } = shark
+    const depth = shark.depth
+    shark.destroy()
 
     playWhaleExplosion(this, x, y, depth)
     spawnPoisonSkull(this, x, y - 8, depth)
 
-    this.whaleScore += 1
-    this.scoreText.setText(`Whales: ${this.whaleScore}`)
+    this.score += 1
+    this.scoreText.setText(`Score: ${this.score}`)
     this.sfx?.whaleExplosion?.()
     this.hudFloat(x, y - 40, '+1 point!', '#fde047')
     this.cameras.main.shake(120, 0.01)
@@ -352,37 +459,46 @@ export class BoatScene extends Phaser.Scene {
     if (this.pedalRightDown) vx += PEDAL_SPEED
 
     this.boatX = Phaser.Math.Clamp(this.boatX + vx * (delta / 1000), 100, w - 100)
+    this.boatY = h - 72
 
     this.boatSprite.setX(this.boatX)
     this.gun.setPosition(this.boatX + 8, h - 98)
     this.leftPedal.setPosition(this.boatX - 42, h - 34)
     this.rightPedal.setPosition(this.boatX + 42, h - 34)
+    this.blockBtn?.setX(this.boatX)
+    this.boatZone.setPosition(this.boatX, this.boatY)
+
+    if (this.isBlocking) {
+      showBlockShield(this, this.boatX, this.boatY - 8, true)
+    }
 
     redrawBoatView(this.boatView, { width: w, height: h, boatX: this.boatX })
 
     if (time >= this.nextSpawnAt) {
-      this._spawnWhale()
+      this._spawnShark()
       if (Math.random() < 0.35) {
-        this.time.delayedCall(350, () => this._spawnWhale())
+        this.time.delayedCall(350, () => this._spawnShark())
       }
-      if (Math.random() < SAILOR_SPAWN_CHANCE) {
-        this.time.delayedCall(Phaser.Math.Between(200, 600), () => this._spawnSailor())
+      if (Math.random() < FISH_SPAWN_CHANCE) {
+        this.time.delayedCall(Phaser.Math.Between(200, 600), () => this._spawnFish())
       }
       this.nextSpawnAt = time + SPAWN_MS + Phaser.Math.Between(-350, 450)
     }
 
-    for (const whale of this.whales.getChildren()) {
-      if (!whale.active) continue
-      if (whale.scaryGlow?.active) {
-        const flip = whale.flipX ? -1 : 1
-        whale.scaryGlow.setPosition(whale.x + 26 * flip, whale.y - 4)
-      }
-      if (whale.x < -100 || whale.x > w + 100) whale.destroy()
+    for (const shark of this.sharks.getChildren()) {
+      if (!shark.active) continue
+      this._sharkTryShoot(shark, time)
+      if (shark.x < -100 || shark.x > w + 100) shark.destroy()
     }
 
-    for (const sailor of this.sailors.getChildren()) {
-      if (!sailor.active) continue
-      if (sailor.x < -100 || sailor.x > w + 100) sailor.destroy()
+    for (const fishSprite of this.fish.getChildren()) {
+      if (!fishSprite.active) continue
+      if (fishSprite.x < -100 || fishSprite.x > w + 100) fishSprite.destroy()
+    }
+
+    for (const bullet of this.enemyBullets.getChildren()) {
+      if (!bullet.active) continue
+      if (bullet.y > h + 20) bullet.destroy()
     }
   }
 }

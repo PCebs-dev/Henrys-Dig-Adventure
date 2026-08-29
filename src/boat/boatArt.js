@@ -70,6 +70,14 @@ export function createBoatTextures(scene) {
   bullet.generateTexture('boat-bullet', 8, 8)
   bullet.destroy()
 
+  const enemyBullet = scene.make.graphics({ x: 0, y: 0, add: false })
+  enemyBullet.fillStyle(0xef4444, 1)
+  enemyBullet.fillCircle(5, 5, 5)
+  enemyBullet.fillStyle(0xfca5a5, 0.9)
+  enemyBullet.fillCircle(4, 4, 2)
+  enemyBullet.generateTexture('enemy-bullet', 10, 10)
+  enemyBullet.destroy()
+
   const skull = scene.make.graphics({ x: 0, y: 0, add: false })
   skull.fillStyle(0xe5e7eb, 1)
   skull.fillCircle(16, 14, 12)
@@ -268,10 +276,10 @@ export function spawnPoisonSkull(scene, x, y, depth = 800) {
   return skull
 }
 
-export function addSailorWave(scene, sailor) {
-  const baseY = sailor.y
+export function addFishWave(scene, fish) {
+  const baseY = fish.y
   scene.tweens.add({
-    targets: sailor,
+    targets: fish,
     y: baseY + Phaser.Math.Between(-6, 6),
     duration: 1200,
     yoyo: true,
@@ -280,7 +288,7 @@ export function addSailorWave(scene, sailor) {
   })
 }
 
-export function playSailorHitReaction(scene, x, y, depth = 800) {
+export function playFishHitReaction(scene, x, y, depth = 800) {
   const burst = scene.add
     .text(x, y - 20, '😢', { fontSize: '28px' })
     .setOrigin(0.5)
@@ -306,29 +314,43 @@ export function playSailorHitReaction(scene, x, y, depth = 800) {
   })
 }
 
-export function setupWhaleJump(scene, whale, surfaceY) {
+export function setupSharkJump(scene, shark, surfaceY) {
   const jumpDelay = Phaser.Math.Between(800, 2200)
   const doJump = () => {
-    if (!whale.active) return
-    const startY = whale.y
+    if (!shark.active) return
     scene.tweens.add({
-      targets: whale,
+      targets: shark,
       y: surfaceY - Phaser.Math.Between(55, 85),
       duration: 420,
       ease: 'Quad.easeOut',
       yoyo: true,
-      onUpdate: () => {
-        if (whale.scaryGlow?.active) {
-          const flip = whale.flipX ? -1 : 1
-          whale.scaryGlow.setPosition(whale.x + 26 * flip, whale.y - 4)
-        }
-      },
       onComplete: () => {
-        if (whale.active) {
+        if (shark.active) {
           scene.time.delayedCall(Phaser.Math.Between(1200, 2800), doJump)
         }
       },
     })
   }
   scene.time.delayedCall(jumpDelay, doJump)
+}
+
+export function showBlockShield(scene, x, y, visible) {
+  if (!scene.blockShield) {
+    scene.blockShield = scene.add
+      .circle(x, y, 52, 0x60a5fa, 0.25)
+      .setStrokeStyle(4, 0x93c5fd, 0.85)
+      .setDepth(880)
+      .setScrollFactor(0)
+  }
+  scene.blockShield.setPosition(x, y)
+  scene.blockShield.setVisible(visible)
+  if (visible) {
+    scene.tweens.add({
+      targets: scene.blockShield,
+      scale: 1.08,
+      alpha: 0.45,
+      duration: 120,
+      yoyo: true,
+    })
+  }
 }
