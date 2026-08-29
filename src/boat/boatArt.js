@@ -38,30 +38,32 @@ export function createBoatTextures(scene) {
   gun.destroy()
 
   const whale = scene.make.graphics({ x: 0, y: 0, add: false })
-  whale.fillStyle(0x0a0a0a, 1)
-  whale.fillEllipse(40, 26, 76, 36)
-  whale.fillStyle(0x1e1b4b, 1)
-  whale.fillEllipse(40, 24, 68, 30)
-  whale.fillStyle(0x312e81, 0.6)
-  whale.fillEllipse(48, 22, 24, 14)
-  whale.fillStyle(0x450a0a, 1)
-  whale.fillCircle(66, 20, 7)
-  whale.fillStyle(0xff0000, 1)
-  whale.fillCircle(66, 20, 5)
-  whale.fillStyle(0xff6666, 0.9)
-  whale.fillCircle(64, 18, 2)
-  whale.fillStyle(0x7f1d1d, 1)
-  whale.fillTriangle(58, 28, 54, 32, 62, 32)
-  whale.fillTriangle(64, 28, 60, 32, 68, 32)
-  whale.fillStyle(0xf5f5f4, 1)
-  whale.fillTriangle(58, 28, 56, 31, 60, 31)
-  whale.fillTriangle(64, 28, 62, 31, 66, 31)
-  whale.fillStyle(0x000000, 1)
-  whale.fillTriangle(6, 26, 0, 14, 0, 38)
-  whale.lineStyle(2, 0x450a0a, 0.8)
-  whale.lineBetween(20, 18, 34, 22)
-  whale.lineBetween(20, 30, 34, 26)
-  whale.generateTexture('whale', 80, 52)
+  whale.fillStyle(0x1e293b, 1)
+  whale.fillEllipse(62, 30, 98, 38)
+  whale.fillStyle(0x334155, 1)
+  whale.fillEllipse(58, 28, 90, 34)
+  whale.fillStyle(0x64748b, 0.85)
+  whale.fillEllipse(58, 34, 72, 18)
+  whale.fillStyle(0x475569, 1)
+  whale.fillEllipse(52, 26, 28, 14)
+  whale.fillStyle(0x0f172a, 1)
+  whale.fillTriangle(4, 30, 18, 18, 18, 42)
+  whale.fillStyle(0x334155, 1)
+  whale.fillTriangle(4, 30, 20, 24, 20, 36)
+  whale.fillStyle(0x1e293b, 1)
+  whale.fillTriangle(108, 18, 118, 30, 108, 42)
+  whale.fillStyle(0x475569, 1)
+  whale.fillTriangle(106, 22, 116, 30, 106, 38)
+  whale.fillStyle(0x1e293b, 1)
+  whale.fillTriangle(52, 8, 58, 18, 64, 8)
+  whale.fillStyle(0x0f172a, 1)
+  whale.fillCircle(78, 24, 3)
+  whale.fillStyle(0xffffff, 0.35)
+  whale.fillCircle(77, 23, 1)
+  whale.lineStyle(1, 0x0f172a, 0.5)
+  whale.lineBetween(34, 22, 46, 26)
+  whale.lineBetween(34, 34, 46, 30)
+  whale.generateTexture('boat-whale', 124, 56)
   whale.destroy()
 
   const bullet = scene.make.graphics({ x: 0, y: 0, add: false })
@@ -314,18 +316,37 @@ export function playFishHitReaction(scene, x, y, depth = 800) {
   })
 }
 
-export function setupSharkJump(scene, shark, surfaceY) {
+export function setupFishJump(scene, fish, surfaceY) {
+  const doJump = () => {
+    if (!fish.active) return
+    scene.tweens.add({
+      targets: fish,
+      y: surfaceY - Phaser.Math.Between(45, 95),
+      duration: Phaser.Math.Between(320, 480),
+      ease: 'Quad.easeOut',
+      yoyo: true,
+      onComplete: () => {
+        if (fish.active) {
+          scene.time.delayedCall(Phaser.Math.Between(500, 1400), doJump)
+        }
+      },
+    })
+  }
+  scene.time.delayedCall(Phaser.Math.Between(200, 800), doJump)
+}
+
+export function setupWhaleJump(scene, whale, surfaceY) {
   const jumpDelay = Phaser.Math.Between(800, 2200)
   const doJump = () => {
-    if (!shark.active) return
+    if (!whale.active) return
     scene.tweens.add({
-      targets: shark,
+      targets: whale,
       y: surfaceY - Phaser.Math.Between(55, 85),
       duration: 420,
       ease: 'Quad.easeOut',
       yoyo: true,
       onComplete: () => {
-        if (shark.active) {
+        if (whale.active) {
           scene.time.delayedCall(Phaser.Math.Between(1200, 2800), doJump)
         }
       },

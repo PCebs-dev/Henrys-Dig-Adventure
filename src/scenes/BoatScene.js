@@ -5,22 +5,23 @@ import {
   redrawBoatView,
   playWhaleExplosion,
   spawnPoisonSkull,
-  addFishWave,
   playFishHitReaction,
-  setupSharkJump,
+  setupWhaleJump,
+  setupFishJump,
   showBlockShield,
 } from '../boat/boatArt.js'
-import { preloadBoatAssets, SHARK_KEY, FISH_KEY } from '../boat/boatAssets.js'
+import { preloadBoatAssets, WHALE_KEY, FISH_KEY } from '../boat/boatAssets.js'
 
-const SHARK_SPEED = 55 * 1.04
-const FISH_SPEED = 48
+const WHALE_SPEED = 55 * 1.04
+const FISH_SPEED = 90
 const BULLET_SPEED = 420
 const ENEMY_BULLET_SPEED = 300
 const PEDAL_SPEED = 160
 const SPAWN_MS = 1470
-const JUMPING_SHARK_CHANCE = 0.38
+const JUMPING_WHALE_CHANCE = 0.38
 const FISH_SPAWN_CHANCE = 0.32
-const SHARK_SHOOTER_CHANCE = 0.4
+const WHALE_SHOOTER_CHANCE = 0.4
+const FISH_JUMP_CHANCE = 0.92
 
 export class BoatScene extends Phaser.Scene {
   constructor() {
@@ -51,7 +52,7 @@ export class BoatScene extends Phaser.Scene {
     this.isBlocking = false
     this.canShoot = true
 
-    this.sharks = this.physics.add.group()
+    this.whales = this.physics.add.group()
     this.fish = this.physics.add.group()
     this.bullets = this.physics.add.group()
     this.enemyBullets = this.physics.add.group()
@@ -104,7 +105,7 @@ export class BoatScene extends Phaser.Scene {
       .setScrollFactor(0)
 
     this.add
-      .text(w / 2, 14, 'BOAT SHARK HUNT', {
+      .text(w / 2, 14, 'BOAT WHALE HUNT', {
         fontFamily: 'system-ui, Segoe UI, sans-serif',
         fontSize: '18px',
         color: '#fde68a',
@@ -140,10 +141,10 @@ export class BoatScene extends Phaser.Scene {
 
     this.physics.add.overlap(
       this.bullets,
-      this.sharks,
-      (bullet, shark) => {
+      this.whales,
+      (bullet, whale) => {
         if (bullet.active) bullet.destroy()
-        this._onSharkHit(shark)
+        this._onWhaleHit(whale)
       },
       undefined,
       this,
@@ -305,29 +306,29 @@ export class BoatScene extends Phaser.Scene {
     })
   }
 
-  _spawnShark() {
+  _spawnWhale() {
     const w = this.scale.width
     const h = this.scale.height
     const fromLeft = Math.random() > 0.5
     const y = Phaser.Math.Between(Math.floor(h * 0.28), Math.floor(h * 0.72))
-    const x = fromLeft ? -50 : w + 50
+    const x = fromLeft ? -60 : w + 60
     const surfaceY = h * 0.42
 
-    const shark = this.sharks.create(x, y, SHARK_KEY)
-    shark.setScale(0.85)
-    shark.body.setAllowGravity(false)
-    shark.setVelocityX(fromLeft ? SHARK_SPEED : -SHARK_SPEED)
-    shark.setFlipX(!fromLeft)
-    shark.setDepth(y)
-    shark.body.setSize(shark.displayWidth * 0.75, shark.displayHeight * 0.55)
-    shark.body.setOffset(shark.displayWidth * 0.12, shark.displayHeight * 0.22)
+    const whale = this.whales.create(x, y, WHALE_KEY)
+    whale.setScale(1.05)
+    whale.body.setAllowGravity(false)
+    whale.setVelocityX(fromLeft ? WHALE_SPEED : -WHALE_SPEED)
+    whale.setFlipX(!fromLeft)
+    whale.setDepth(y)
+    whale.body.setSize(whale.displayWidth * 0.78, whale.displayHeight * 0.5)
+    whale.body.setOffset(whale.displayWidth * 0.1, whale.displayHeight * 0.22)
 
-    const isJumper = Math.random() < JUMPING_SHARK_CHANCE
+    const isJumper = Math.random() < JUMPING_WHALE_CHANCE
     if (isJumper) {
-      setupSharkJump(this, shark, surfaceY)
+      setupWhaleJump(this, whale, surfaceY)
     } else {
       this.tweens.add({
-        targets: shark,
+        targets: whale,
         y: y + Phaser.Math.Between(-12, 12),
         duration: 1400,
         yoyo: true,
@@ -336,9 +337,9 @@ export class BoatScene extends Phaser.Scene {
       })
     }
 
-    if (Math.random() < SHARK_SHOOTER_CHANCE) {
-      shark.isShooter = true
-      shark.nextShotAt = this.time.now + Phaser.Math.Between(900, 1800)
+    if (Math.random() < WHALE_SHOOTER_CHANCE) {
+      whale.isShooter = true
+      whale.nextShotAt = this.time.now + Phaser.Math.Between(900, 1800)
     }
   }
 
@@ -348,6 +349,7 @@ export class BoatScene extends Phaser.Scene {
     const fromLeft = Math.random() > 0.5
     const y = Phaser.Math.Between(Math.floor(h * 0.32), Math.floor(h * 0.68))
     const x = fromLeft ? -50 : w + 50
+    const surfaceY = h * 0.42
 
     const fishSprite = this.fish.create(x, y, FISH_KEY)
     fishSprite.setScale(0.85)
@@ -355,20 +357,31 @@ export class BoatScene extends Phaser.Scene {
     fishSprite.setVelocityX(fromLeft ? FISH_SPEED : -FISH_SPEED)
     fishSprite.setFlipX(!fromLeft)
     fishSprite.setDepth(y)
-    fishSprite.body.setSize(fishSprite.displayWidth * 0.7, fishSprite.displayHeight * 0.65)
-    fishSprite.body.setOffset(fishSprite.displayWidth * 0.15, fishSprite.displayHeight * 0.18)
+    fishSprite.body.setSize(fishSprite.displayWidth * 0.65, fishSprite.displayHeight * 0.6)
+    fishSprite.body.setOffset(fishSprite.displayWidth * 0.18, fishSprite.displayHeight * 0.2)
 
-    addFishWave(this, fishSprite)
+    if (Math.random() < FISH_JUMP_CHANCE) {
+      setupFishJump(this, fishSprite, surfaceY)
+    } else {
+      this.tweens.add({
+        targets: fishSprite,
+        y: y + Phaser.Math.Between(-10, 10),
+        duration: 700,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      })
+    }
   }
 
-  _sharkTryShoot(shark, time) {
-    if (!shark.isShooter || !shark.active) return
-    if (time < shark.nextShotAt) return
-    if (Math.abs(shark.x - this.boatX) > 140) return
+  _whaleTryShoot(whale, time) {
+    if (!whale.isShooter || !whale.active) return
+    if (time < whale.nextShotAt) return
+    if (Math.abs(whale.x - this.boatX) > 140) return
 
-    shark.nextShotAt = time + Phaser.Math.Between(1600, 2800)
+    whale.nextShotAt = time + Phaser.Math.Between(1600, 2800)
 
-    const bullet = this.enemyBullets.create(shark.x, shark.y + 18, 'enemy-bullet')
+    const bullet = this.enemyBullets.create(whale.x, whale.y + 18, 'enemy-bullet')
     bullet.body.setAllowGravity(false)
     bullet.setVelocity(0, ENEMY_BULLET_SPEED)
     bullet.setDepth(820)
@@ -409,12 +422,12 @@ export class BoatScene extends Phaser.Scene {
     this.cameras.main.shake(80, 0.008)
   }
 
-  _onSharkHit(shark) {
-    if (!shark.active) return
+  _onWhaleHit(whale) {
+    if (!whale.active) return
 
-    const { x, y } = shark
-    const depth = shark.depth
-    shark.destroy()
+    const { x, y } = whale
+    const depth = whale.depth
+    whale.destroy()
 
     playWhaleExplosion(this, x, y, depth)
     spawnPoisonSkull(this, x, y - 8, depth)
@@ -475,9 +488,9 @@ export class BoatScene extends Phaser.Scene {
     redrawBoatView(this.boatView, { width: w, height: h, boatX: this.boatX })
 
     if (time >= this.nextSpawnAt) {
-      this._spawnShark()
+      this._spawnWhale()
       if (Math.random() < 0.35) {
-        this.time.delayedCall(350, () => this._spawnShark())
+        this.time.delayedCall(350, () => this._spawnWhale())
       }
       if (Math.random() < FISH_SPAWN_CHANCE) {
         this.time.delayedCall(Phaser.Math.Between(200, 600), () => this._spawnFish())
@@ -485,10 +498,10 @@ export class BoatScene extends Phaser.Scene {
       this.nextSpawnAt = time + SPAWN_MS + Phaser.Math.Between(-350, 450)
     }
 
-    for (const shark of this.sharks.getChildren()) {
-      if (!shark.active) continue
-      this._sharkTryShoot(shark, time)
-      if (shark.x < -100 || shark.x > w + 100) shark.destroy()
+    for (const whale of this.whales.getChildren()) {
+      if (!whale.active) continue
+      this._whaleTryShoot(whale, time)
+      if (whale.x < -120 || whale.x > w + 120) whale.destroy()
     }
 
     for (const fishSprite of this.fish.getChildren()) {

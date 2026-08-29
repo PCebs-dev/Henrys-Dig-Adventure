@@ -242,7 +242,7 @@ export class TitleScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
 
     const label = this.add
-      .text(cx, btnY, 'BOAT SHARK HUNT', {
+      .text(cx, btnY, 'BOAT WHALE HUNT', {
         fontFamily: 'system-ui, Segoe UI, sans-serif',
         fontSize: '18px',
         color: '#ffffff',
