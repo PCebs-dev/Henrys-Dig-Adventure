@@ -29,6 +29,7 @@ export class TitleScene extends Phaser.Scene {
     this._addMinerHero(cx, h)
     this._addTitleText(cx)
     this._addStartButton(cx, h)
+    this._addBoatButton(cx, h)
   }
 
   _drawBackdrop(w, h) {
@@ -227,5 +228,39 @@ export class TitleScene extends Phaser.Scene {
     label.on('pointerdown', start)
     this.input.keyboard?.on('keydown-ENTER', () => void start())
     this.input.keyboard?.on('keydown-SPACE', () => void start())
+  }
+
+  _addBoatButton(cx, h) {
+    const btnY = h - 158
+    const btnW = 240
+    const btnH = 48
+
+    const btn = this.add
+      .rectangle(cx, btnY, btnW, btnH, 0x0369a1)
+      .setStrokeStyle(3, 0x7dd3fc)
+      .setDepth(30)
+      .setInteractive({ useHandCursor: true })
+
+    const label = this.add
+      .text(cx, btnY, 'BOAT WHALE HUNT', {
+        fontFamily: 'system-ui, Segoe UI, sans-serif',
+        fontSize: '18px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(31)
+
+    const launch = async () => {
+      const sfx = this.registry.get('sfx')
+      await sfx.unlock()
+      this.scene.start('BoatScene', { sfx, returnScene: 'TitleScene' })
+    }
+
+    btn.on('pointerover', () => btn.setFillStyle(0x0284c7))
+    btn.on('pointerout', () => btn.setFillStyle(0x0369a1))
+    btn.on('pointerdown', launch)
+    label.setInteractive({ useHandCursor: true })
+    label.on('pointerdown', launch)
   }
 }

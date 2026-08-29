@@ -2,7 +2,7 @@ import Phaser from 'phaser'
 import { createInitialGameState } from '../gameState.js'
 import { Sfx } from '../audio/Sfx.js'
 import { preloadMiner, createMinerAnimations } from '../characters/miner.js'
-import { preloadTreasureAssets } from '../treasure/treasureAssets.js'
+import { preloadTreasureAssets, setupTreasureIcons } from '../treasure/treasureAssets.js'
 import { registerCrystalFrames } from '../treasure/crystalFrames.js'
 import { preloadMapAssets } from '../worlds/mapAssets.js'
 import { preloadBatAssets, createBatAnimations } from '../enemies/batAssets.js'
@@ -28,6 +28,7 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     registerCrystalFrames(this)
+    setupTreasureIcons(this)
     createMinerAnimations(this)
     createBatAnimations(this)
     createDragonAnimations(this)

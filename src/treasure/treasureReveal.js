@@ -1,5 +1,10 @@
 import { addGem, addScore, resetDigs } from '../gameState.js'
 import { createCrystalSprite } from './crystalFrames.js'
+import {
+  TREASURE_ICONS_KEY,
+  getOpenChestFrame,
+  registerTreasureIconFrames,
+} from './treasureIconFrames.js'
 
 function delay(scene, ms) {
   return new Promise((resolve) => {
@@ -28,7 +33,7 @@ function gemSlots(count, cx, cy) {
 /**
  * Full-screen treasure moment: chest open (1s hold), then gems pop out (2s hold).
  */
-export async function playTreasureReveal(scene, { chest, sfx, state }) {
+export async function playTreasureReveal(scene, { chest, iconFrame = 0, sfx, state }) {
   scene.revealActive = true
   scene.input.enabled = false
   if (scene.player?.body) scene.player.body.setVelocity(0, 0)
@@ -55,19 +60,27 @@ export async function playTreasureReveal(scene, { chest, sfx, state }) {
     .setScrollFactor(0)
     .setDepth(2001)
 
+  registerTreasureIconFrames(scene)
+
+  const closedFrame = iconFrame ?? 0
+  const openFrame = getOpenChestFrame(closedFrame)
+
   const chestSprite = scene.add
-    .image(cx, cy, 'chest-layer-1')
+    .sprite(cx, cy, TREASURE_ICONS_KEY, closedFrame)
     .setScrollFactor(0)
     .setDepth(2002)
-    .setScale(3)
+    .setScale(2.2)
 
   scene.cameras.main.shake(150, 0.008)
   sfx.chestFound()
 
-  for (let i = 1; i <= 8; i++) {
-    chestSprite.setTexture(`chest-layer-${i}`)
-    await delay(scene, 70)
-  }
+  chestSprite.setFrame(openFrame)
+  scene.tweens.add({
+    targets: chestSprite,
+    scale: 2.5,
+    duration: 400,
+    ease: 'Back.easeOut',
+  })
 
   await delay(scene, 1000)
 

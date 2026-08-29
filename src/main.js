@@ -6,6 +6,7 @@ import { BootScene } from './scenes/BootScene.js'
 import { GameScene } from './scenes/GameScene.js'
 import { CaveScene } from './scenes/CaveScene.js'
 import { HomeScene } from './scenes/HomeScene.js'
+import { BoatScene } from './scenes/BoatScene.js'
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -14,5 +15,9 @@ new Phaser.Game({
   parent: 'app',
   backgroundColor: '#1c1917',
   physics: physicsConfig,
-  scene: [TitleScene, BootScene, GameScene, CaveScene, HomeScene],
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  scene: [TitleScene, BootScene, GameScene, CaveScene, HomeScene, BoatScene],
 })

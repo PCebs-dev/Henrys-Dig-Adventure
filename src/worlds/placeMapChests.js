@@ -1,4 +1,5 @@
 import { rollChest } from '../systems/LootTables.js'
+import { pickChestIconFrame } from '../treasure/treasureIconFrames.js'
 
 function mulberry32(seed) {
   return function rand() {
@@ -76,6 +77,7 @@ export function placeMapChests({
       id: `chest-${col}-${row}`,
       col,
       row,
+      iconFrame: pickChestIconFrame(rand),
       loot: rollChest(lootRand),
       opened: false,
     })

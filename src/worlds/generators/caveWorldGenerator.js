@@ -1,5 +1,6 @@
 import { CAVE_TILE } from '../mapAssets.js'
 import { placeMapChests } from '../placeMapChests.js'
+import { placeDigSites } from '../placeDigSites.js'
 
 function mulberry32(seed) {
   return function rand() {
@@ -61,7 +62,21 @@ export function generateCaveWorld(seed = Date.now()) {
     seed: (seed + 5000) >>> 0,
     spawnCol,
     spawnRow,
-    count: 2 + Math.floor(rand() * 2),
+    count: 4 + Math.floor(rand() * 3),
+  })
+
+  const chestTiles = new Set(chests.map((c) => `${c.col},${c.row}`))
+  const { surfaceGems, buriedChests } = placeDigSites({
+    walkGrid,
+    cols,
+    rows,
+    rand,
+    seed: (seed + 7700) >>> 0,
+    spawnCol,
+    spawnRow,
+    reservedTiles: chestTiles,
+    surfaceGemCount: 3 + Math.floor(rand() * 3),
+    buriedChestCount: 1 + Math.floor(rand() * 2),
   })
 
   return {
@@ -74,6 +89,8 @@ export function generateCaveWorld(seed = Date.now()) {
     spawnRow,
     oreBonus,
     chests,
+    surfaceGems,
+    buriedChests,
   }
 }
 

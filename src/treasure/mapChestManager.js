@@ -1,14 +1,20 @@
 import { playTreasureReveal } from './treasureReveal.js'
+import {
+  TREASURE_ICONS_KEY,
+  treasureDisplayScale,
+  registerTreasureIconFrames,
+} from './treasureIconFrames.js'
 
 export class MapChestManager {
   constructor(scene, { chests, tileSize }) {
     this.scene = scene
     this.tileSize = tileSize
-    // Cave uses 64px tiles; top world uses 32px — range must cover an adjacent tile center.
     this.openRadius = tileSize + 12
     this.entries = []
     this.zones = scene.physics.add.group()
     this.opening = false
+
+    registerTreasureIconFrames(scene)
 
     for (const chest of chests) {
       if (chest.opened) continue
@@ -28,10 +34,13 @@ export class MapChestManager {
     const { scene } = this
     const x = chest.col * this.tileSize + this.tileSize / 2
     const y = chest.row * this.tileSize + this.tileSize / 2
+    const frame = chest.iconFrame ?? 0
+    const scale = treasureDisplayScale(this.tileSize)
 
     const sprite = scene.add
-      .image(x, y, 'chest-layer-1')
-      .setScale(2)
+      .sprite(x, y, TREASURE_ICONS_KEY, frame)
+      .setOrigin(0.5, 0.85)
+      .setScale(scale)
       .setDepth(y + 12)
 
     scene.tweens.add({
@@ -44,11 +53,11 @@ export class MapChestManager {
     })
 
     const glow = scene.add
-      .circle(x, y + 8, 22, 0xfbbf24, 0.12)
+      .circle(x, y + 4, 18, 0xfbbf24, 0.15)
       .setDepth(y + 11)
     scene.tweens.add({
       targets: glow,
-      alpha: 0.28,
+      alpha: 0.3,
       scale: 1.15,
       duration: 900,
       yoyo: true,
@@ -84,7 +93,6 @@ export class MapChestManager {
     return best
   }
 
-  /** Walk target: tile adjacent to chest, closest to click */
   getApproachTile(entry, fromWorldX, fromWorldY) {
     const { col, row } = entry.chest
     const candidates = [
@@ -160,6 +168,7 @@ export class MapChestManager {
 
     await playTreasureReveal(scene, {
       chest: entry.chest.loot,
+      iconFrame: entry.chest.iconFrame ?? 0,
       sfx: scene.sfx,
       state: scene.state,
     })

@@ -15,6 +15,8 @@ import { buildCaveWorldMap } from '../worlds/MapBuilder.js'
 import { setupClickToMove } from '../movement/clickToMove.js'
 import { BatManager } from '../enemies/bat.js'
 import { MapChestManager } from '../treasure/mapChestManager.js'
+import { spawnSurfaceGemMarkers } from '../worlds/surfaceGemMarkers.js'
+import { scatterTreasureDecor } from '../treasure/treasureDecorScatter.js'
 
 export class CaveScene extends Phaser.Scene {
   constructor() {
@@ -65,13 +67,36 @@ export class CaveScene extends Phaser.Scene {
     this.revealActive = false
     this.pendingChest = null
 
-    this.dig = new DigSystem({ tileSize: this.map.tileSize })
-
     this.hud = new HUD(this, this.state)
-    this.hudHint = 'Click to move. Dig and open chests — watch for bats!'
+    this.hudHint = 'Dig deeper in the cave for rarer gems. Chests are only in special spots!'
     this.chestManager = new MapChestManager(this, {
       chests: layout.chests ?? [],
       tileSize: this.map.tileSize,
+    })
+    this.dig = new DigSystem({
+      tileSize: this.map.tileSize,
+      surfaceGems: layout.surfaceGems ?? [],
+      buriedChests: layout.buriedChests ?? [],
+    })
+    this.surfaceGemMarkers = spawnSurfaceGemMarkers(this, {
+      surfaceGems: layout.surfaceGems ?? [],
+      tileSize: this.map.tileSize,
+    })
+    const reservedDecor = new Set([
+      ...(layout.chests ?? []).map((c) => `${c.col},${c.row}`),
+      ...(layout.surfaceGems ?? []).map((g) => `${g.col},${g.row}`),
+      ...(layout.buriedChests ?? []).map((b) => `${b.col},${b.row}`),
+    ])
+    this.treasureDecor = scatterTreasureDecor(this, {
+      walkGrid: layout.walkGrid,
+      cols: layout.cols,
+      rows: layout.rows,
+      tileSize: this.map.tileSize,
+      seed: this.mapSeed,
+      spawnCol: layout.spawnCol,
+      spawnRow: layout.spawnRow,
+      reservedTiles: reservedDecor,
+      count: 8,
     })
     this.batManager = new BatManager(this)
     setupClickToMove(this, { map: this.map, speed: 190 })
@@ -114,6 +139,8 @@ export class CaveScene extends Phaser.Scene {
     if (this.revealActive) return
     this.batManager?.destroy()
     this.chestManager?.destroy()
+    this.surfaceGemMarkers?.destroy()
+    this.treasureDecor?.destroy()
     this.cameras.main.fadeOut(220, 0, 0, 0)
     this.time.delayedCall(240, () => {
       this.scene.start(this.returnScene, {
@@ -140,6 +167,8 @@ export class CaveScene extends Phaser.Scene {
   shutdown() {
     this.batManager?.destroy()
     this.chestManager?.destroy()
+    this.surfaceGemMarkers?.destroy()
+    this.treasureDecor?.destroy()
   }
 
   _startDig(at) {
@@ -184,22 +213,44 @@ export class CaveScene extends Phaser.Scene {
   async _resolveDig(at) {
     const result = this.dig.digAt({ x: at.x, y: at.y, worldId: this.worldId })
     const onOre = this.map.isOreAt(at.x, at.y)
-    const roll = result.outcome.type
 
-    if (roll === 'empty') {
-      this.sfx.empty()
-      addScore(this.state, onOre ? 5 : 2)
-      this.hud.floatText(at.x, at.y - 18, onOre ? 'Sparkle dust...' : 'Dusty...', '#cbd5e1')
-    } else if (roll === 'gem' || roll === 'rare') {
-      const crystal = result.rollCrystal()
-      addGem(this.state, crystal.key, 1)
-      addScore(this.state, crystal.points + (onOre ? 10 : 6))
-      await this._showCrystalPickup(at, crystal)
-    } else {
-      const chest = result.rollChest()
-      if (onOre || Math.random() < 0.25) chest.hasExtraDig = true
-      await playTreasureReveal(this, { chest, sfx: this.sfx, state: this.state })
+    if (result.outcome.type === 'buried_chest') {
+      this.hud.floatText(at.x, at.y - 24, 'Hidden cave chest!', '#fde68a')
+      await playTreasureReveal(this, { chest: result.chest, iconFrame: result.iconFrame ?? 0, sfx: this.sfx, state: this.state })
+      playMinerIdleAnimation(this.player)
+      this.isDigging = false
+      if (goHomeIfNoDigs(this)) return
+      if (this.visitDigs <= 0) this._exitCave()
+      return
     }
+
+    if (result.outcome.type === 'gem') {
+      const crystal = result.crystal ?? result.rollCrystal()
+      if (result.surfaceGemClaimed) {
+        this.surfaceGemMarkers?.remove(result.key)
+      }
+      addGem(this.state, crystal.key, 1)
+      const depthBonus = (result.digCount - 1) * 6
+      addScore(this.state, crystal.points + depthBonus + (onOre ? 10 : 0))
+      await this._showCrystalPickup(at, crystal, result.digCount)
+      playMinerIdleAnimation(this.player)
+      this.isDigging = false
+      if (goHomeIfNoDigs(this)) return
+      if (this.visitDigs <= 0) this._exitCave()
+      return
+    }
+
+    this.sfx.empty()
+    addScore(this.state, onOre ? 5 : 1)
+    const depthMsg =
+      result.digCount === 1
+        ? onOre
+          ? 'Sparkle dust... dig deeper!'
+          : 'Dusty... dig deeper!'
+        : onOre
+          ? 'More dust...'
+          : 'Nothing here...'
+    this.hud.floatText(at.x, at.y - 18, depthMsg, '#cbd5e1')
 
     playMinerIdleAnimation(this.player)
     this.isDigging = false
@@ -208,11 +259,17 @@ export class CaveScene extends Phaser.Scene {
     if (this.visitDigs <= 0) this._exitCave()
   }
 
-  _showCrystalPickup(at, crystal) {
+  _showCrystalPickup(at, crystal, depth = 1) {
     return new Promise((resolve) => {
       const gem = createCrystalSprite(this, at.x, at.y - 20, crystal.frame, 48).setDepth(800)
       this.sfx.gemsInChest()
-      this.hud.floatText(at.x, at.y - 40, `Cave! +${crystal.points} ${crystal.label}`, '#bbf7d0')
+      const depthLabel = depth > 1 ? ` deep x${depth}` : ''
+      this.hud.floatText(
+        at.x,
+        at.y - 40,
+        `Cave! +${crystal.points} ${crystal.label}${depthLabel}`,
+        '#bbf7d0',
+      )
       this.time.delayedCall(1000, () => {
         gem.destroy()
         resolve()

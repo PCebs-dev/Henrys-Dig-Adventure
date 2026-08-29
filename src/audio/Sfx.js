@@ -96,5 +96,23 @@ export class Sfx {
     this._tone({ freq: 392, type: 'triangle', durationMs: 100, gain: 0.035, when: 0.14 })
     this._tone({ freq: 98, type: 'sine', durationMs: 200, gain: 0.04, when: 0.1 })
   }
+
+  boatShoot() {
+    this._tone({ freq: 180, type: 'square', durationMs: 50, gain: 0.04 })
+    this._tone({ freq: 120, type: 'sawtooth', durationMs: 80, gain: 0.035, when: 0.04 })
+  }
+
+  whaleHit() {
+    this._tone({ freq: 440, type: 'sine', durationMs: 90, gain: 0.05 })
+    this._tone({ freq: 660, type: 'sine', durationMs: 120, gain: 0.055, when: 0.08 })
+    this._tone({ freq: 880, type: 'triangle', durationMs: 150, gain: 0.05, when: 0.16 })
+  }
+
+  whaleExplosion() {
+    this._tone({ freq: 90, type: 'sawtooth', durationMs: 120, gain: 0.06 })
+    this._tone({ freq: 55, type: 'square', durationMs: 180, gain: 0.05, when: 0.06 })
+    this._tone({ freq: 330, type: 'triangle', durationMs: 100, gain: 0.04, when: 0.1 })
+    this._tone({ freq: 220, type: 'sine', durationMs: 200, gain: 0.035, when: 0.15 })
+  }
 }
 

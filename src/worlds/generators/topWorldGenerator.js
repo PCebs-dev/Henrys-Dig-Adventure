@@ -1,5 +1,6 @@
 import { TOP_TILE } from '../mapAssets.js'
 import { placeMapChests } from '../placeMapChests.js'
+import { placeDigSites } from '../placeDigSites.js'
 
 function mulberry32(seed) {
   return function rand() {
@@ -51,7 +52,21 @@ export function generateTopWorld(seed = Date.now()) {
     seed: seed >>> 0,
     spawnCol,
     spawnRow,
-    count: 4 + Math.floor(rand() * 3),
+    count: 8 + Math.floor(rand() * 5),
+  })
+
+  const chestTiles = new Set(chests.map((c) => `${c.col},${c.row}`))
+  const { surfaceGems, buriedChests } = placeDigSites({
+    walkGrid,
+    cols,
+    rows,
+    rand,
+    seed: (seed + 2200) >>> 0,
+    spawnCol,
+    spawnRow,
+    reservedTiles: chestTiles,
+    surfaceGemCount: 6 + Math.floor(rand() * 4),
+    buriedChestCount: 2 + Math.floor(rand() * 2),
   })
 
   return {
@@ -64,6 +79,8 @@ export function generateTopWorld(seed = Date.now()) {
     spawnRow,
     oreBonus,
     chests,
+    surfaceGems,
+    buriedChests,
   }
 }
 
