@@ -6,12 +6,18 @@ import {
   addScaryWhaleEyes,
   playWhaleExplosion,
   spawnPoisonSkull,
+  addSailorWave,
+  playSailorHitReaction,
+  setupWhaleJump,
 } from '../boat/boatArt.js'
 
-const WHALE_SPEED = 55
+const WHALE_SPEED = 55 * 1.04
+const SAILOR_SPEED = 48
 const BULLET_SPEED = 420
 const PEDAL_SPEED = 160
 const SPAWN_MS = 1470
+const JUMPING_WHALE_CHANCE = 0.38
+const SAILOR_SPAWN_CHANCE = 0.32
 
 export class BoatScene extends Phaser.Scene {
   constructor() {
@@ -37,6 +43,7 @@ export class BoatScene extends Phaser.Scene {
     this.canShoot = true
 
     this.whales = this.physics.add.group()
+    this.sailors = this.physics.add.group()
     this.bullets = this.physics.add.group()
 
     this.boatView = createBoatViewGraphics(this)
@@ -90,7 +97,7 @@ export class BoatScene extends Phaser.Scene {
       .setScrollFactor(0)
 
     this.add
-      .text(w / 2, h - 118, 'Pedals = move   |   Click / Space = shoot', {
+      .text(w / 2, h - 118, 'Shoot whales (+1)  |  Avoid sailors (-1)', {
         fontFamily: 'system-ui, Segoe UI, sans-serif',
         fontSize: '13px',
         color: '#bae6fd',
@@ -120,6 +127,17 @@ export class BoatScene extends Phaser.Scene {
       (bullet, whale) => {
         if (bullet.active) bullet.destroy()
         this._onWhaleHit(whale)
+      },
+      undefined,
+      this,
+    )
+
+    this.physics.add.overlap(
+      this.bullets,
+      this.sailors,
+      (bullet, sailor) => {
+        if (bullet.active) bullet.destroy()
+        this._onSailorHit(sailor)
       },
       undefined,
       this,
@@ -220,6 +238,7 @@ export class BoatScene extends Phaser.Scene {
     const fromLeft = Math.random() > 0.5
     const y = Phaser.Math.Between(Math.floor(h * 0.28), Math.floor(h * 0.72))
     const x = fromLeft ? -50 : w + 50
+    const surfaceY = h * 0.42
 
     const whale = this.whales.create(x, y, 'whale')
     whale.body.setAllowGravity(false)
@@ -229,16 +248,56 @@ export class BoatScene extends Phaser.Scene {
     whale.body.setSize(60, 28)
     whale.body.setOffset(10, 10)
 
-    this.tweens.add({
-      targets: whale,
-      y: y + Phaser.Math.Between(-12, 12),
-      duration: 1400,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    })
+    const isJumper = Math.random() < JUMPING_WHALE_CHANCE
+    if (isJumper) {
+      whale.isJumper = true
+      setupWhaleJump(this, whale, surfaceY)
+    } else {
+      this.tweens.add({
+        targets: whale,
+        y: y + Phaser.Math.Between(-12, 12),
+        duration: 1400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      })
+    }
 
     addScaryWhaleEyes(this, whale)
+  }
+
+  _spawnSailor() {
+    const w = this.scale.width
+    const h = this.scale.height
+    const fromLeft = Math.random() > 0.5
+    const y = Phaser.Math.Between(Math.floor(h * 0.32), Math.floor(h * 0.68))
+    const x = fromLeft ? -50 : w + 50
+
+    const sailor = this.sailors.create(x, y, 'sailor')
+    sailor.body.setAllowGravity(false)
+    sailor.setVelocityX(fromLeft ? SAILOR_SPEED : -SAILOR_SPEED)
+    sailor.setFlipX(!fromLeft)
+    sailor.setDepth(y)
+    sailor.body.setSize(52, 40)
+    sailor.body.setOffset(14, 8)
+    sailor.isFriendly = true
+
+    addSailorWave(this, sailor)
+  }
+
+  _onSailorHit(sailor) {
+    if (!sailor.active) return
+
+    const { x, y } = sailor
+    const depth = sailor.depth
+    sailor.destroy()
+
+    playSailorHitReaction(this, x, y, depth)
+
+    this.whaleScore = Math.max(0, this.whaleScore - 1)
+    this.scoreText.setText(`Whales: ${this.whaleScore}`)
+    this.hudFloat(x, y - 40, '-1 point!', '#f87171')
+    this.cameras.main.shake(80, 0.008)
   }
 
   _onWhaleHit(whale) {
@@ -306,6 +365,9 @@ export class BoatScene extends Phaser.Scene {
       if (Math.random() < 0.35) {
         this.time.delayedCall(350, () => this._spawnWhale())
       }
+      if (Math.random() < SAILOR_SPAWN_CHANCE) {
+        this.time.delayedCall(Phaser.Math.Between(200, 600), () => this._spawnSailor())
+      }
       this.nextSpawnAt = time + SPAWN_MS + Phaser.Math.Between(-350, 450)
     }
 
@@ -316,6 +378,11 @@ export class BoatScene extends Phaser.Scene {
         whale.scaryGlow.setPosition(whale.x + 26 * flip, whale.y - 4)
       }
       if (whale.x < -100 || whale.x > w + 100) whale.destroy()
+    }
+
+    for (const sailor of this.sailors.getChildren()) {
+      if (!sailor.active) continue
+      if (sailor.x < -100 || sailor.x > w + 100) sailor.destroy()
     }
   }
 }

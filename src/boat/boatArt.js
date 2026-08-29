@@ -90,6 +90,33 @@ export function createBoatTextures(scene) {
   skull.fillRect(14, 26, 4, 8)
   skull.generateTexture('poison-skull', 32, 36)
   skull.destroy()
+
+  const sailor = scene.make.graphics({ x: 0, y: 0, add: false })
+  sailor.fillStyle(0x1e3a8a, 1)
+  sailor.fillRoundedRect(18, 34, 44, 14, 4)
+  sailor.fillStyle(0xffffff, 1)
+  sailor.fillRoundedRect(24, 14, 32, 24, 6)
+  sailor.fillStyle(0xfbbf24, 1)
+  sailor.fillTriangle(40, 0, 28, 14, 52, 14)
+  sailor.fillStyle(0xfde68a, 1)
+  sailor.fillRect(36, 0, 8, 6)
+  sailor.fillStyle(0xfcd34d, 1)
+  sailor.fillCircle(40, 22, 10)
+  sailor.fillStyle(0x1e293b, 1)
+  sailor.fillCircle(36, 21, 2)
+  sailor.fillCircle(44, 21, 2)
+  sailor.fillStyle(0xf87171, 1)
+  sailor.fillEllipse(40, 27, 8, 4)
+  sailor.fillStyle(0x1e40af, 1)
+  sailor.fillRect(26, 36, 10, 10)
+  sailor.fillRect(44, 36, 10, 10)
+  sailor.fillStyle(0xffffff, 1)
+  sailor.fillRect(28, 38, 6, 4)
+  sailor.fillRect(46, 38, 6, 4)
+  sailor.lineStyle(2, 0x1e3a8a, 1)
+  sailor.strokeRoundedRect(18, 34, 44, 14, 4)
+  sailor.generateTexture('sailor', 80, 52)
+  sailor.destroy()
 }
 
 export function createBoatViewGraphics(scene) {
@@ -239,4 +266,69 @@ export function spawnPoisonSkull(scene, x, y, depth = 800) {
   })
 
   return skull
+}
+
+export function addSailorWave(scene, sailor) {
+  const baseY = sailor.y
+  scene.tweens.add({
+    targets: sailor,
+    y: baseY + Phaser.Math.Between(-6, 6),
+    duration: 1200,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut',
+  })
+}
+
+export function playSailorHitReaction(scene, x, y, depth = 800) {
+  const burst = scene.add
+    .text(x, y - 20, '😢', { fontSize: '28px' })
+    .setOrigin(0.5)
+    .setDepth(depth + 2)
+
+  scene.tweens.add({
+    targets: burst,
+    y: y - 50,
+    alpha: 0,
+    duration: 700,
+    onComplete: () => burst.destroy(),
+  })
+
+  const ring = scene.add
+    .circle(x, y, 10, 0x60a5fa, 0.4)
+    .setDepth(depth + 1)
+  scene.tweens.add({
+    targets: ring,
+    radius: 36,
+    alpha: 0,
+    duration: 400,
+    onComplete: () => ring.destroy(),
+  })
+}
+
+export function setupWhaleJump(scene, whale, surfaceY) {
+  const jumpDelay = Phaser.Math.Between(800, 2200)
+  const doJump = () => {
+    if (!whale.active) return
+    const startY = whale.y
+    scene.tweens.add({
+      targets: whale,
+      y: surfaceY - Phaser.Math.Between(55, 85),
+      duration: 420,
+      ease: 'Quad.easeOut',
+      yoyo: true,
+      onUpdate: () => {
+        if (whale.scaryGlow?.active) {
+          const flip = whale.flipX ? -1 : 1
+          whale.scaryGlow.setPosition(whale.x + 26 * flip, whale.y - 4)
+        }
+      },
+      onComplete: () => {
+        if (whale.active) {
+          scene.time.delayedCall(Phaser.Math.Between(1200, 2800), doJump)
+        }
+      },
+    })
+  }
+  scene.time.delayedCall(jumpDelay, doJump)
 }
